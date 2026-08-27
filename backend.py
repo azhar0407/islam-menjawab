@@ -60,16 +60,38 @@ async def panggil_llm(messages):
     if cut != -1:
         teks = teks[:cut].strip()
     data = json.loads(teks)
-    return data["choices"][0]["message"]["content"] or "(jawaban kosong)"
+    try:
+        content = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ValueError("Respons LLM tidak memiliki choices/message/content") from exc
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("Respons LLM kosong")
+    return content.strip()
 
-SYSTEM_PROMPT = (
-    "Kamu adalah 'Kamu Bertanya, Islam Menjawab'. Jawab pertanyaan user "
-    "WAJIB dan HANYA berdasarkan ayat-ayat Al-Qur'an (terjemahan) yang diberikan "
-    "dalam konteks [KONTEKS AYAT]. Jangan menambah dari pengetahuan luar. "
-    "Sebutkan nama surah dan nomor surah:ayat dari tiap dalil. Jika konteks tidak "
-    "menjawab, katakan jujur bahwa tidak ada ayat yang relevan dalam sumber. "
-    "Jawab dalam bahasa Indonesia."
-)
+SYSTEM_PROMPT = """Anda adalah asisten informasi Islam berbahasa Indonesia.
+
+Jawab menggunakan pengetahuan umum Islam yang aman dan konteks terjemahan Al-Qur'an yang diberikan. Konteks ayat adalah sumber kutipan, bukan satu-satunya dasar penjelasan.
+
+Aturan:
+- Berikan jawaban langsung, ringkas, netral, mudah dipahami.
+- Jangan mengarang ayat, nomor surah, hadis, fatwa, ijmak, atau pendapat ulama.
+- Kutip maksimal 3 ayat, hanya bila relevan, persis dari [KONTEKS AYAT].
+- Jika konteks kosong atau tidak relevan, tulis: "Tidak ditemukan ayat spesifik dalam konteks yang tersedia."
+- Jangan menyebut hadis karena basis data hadis tervalidasi tidak tersedia.
+- Akui keterbatasan dan perbedaan pendapat fikih tanpa menetapkan fatwa.
+- Untuk masalah medis, hukum, keselamatan, pernikahan, talak, waris, atau akidah sensitif, sarankan konsultasi kepada ahli atau ulama tepercaya.
+- Jangan menghakimi pengguna.
+
+Gunakan format persis:
+Jawaban:
+[penjelasan umum]
+
+Dalil Al-Qur'an:
+[ayat relevan, atau keterangan tidak ditemukan]
+
+Catatan:
+Informasi umum, bukan fatwa. [tambahan keterbatasan atau rujukan ahli bila perlu]
+"""
 
 # --- PERSISTEN RIWAYAT DI DISK (agar restart tidak hilang & RAM tetap hemat) ---
 RIWAYAT_FILE = BASE_DIR / "riwayat.json"
@@ -138,7 +160,7 @@ DATASET, NAMA_SURAT = parse_pdf(PDF_PATH)
 # stopwords ringan utk pencarian
 STOP = set("apa bagaimana mengapa yang dan atau di ke dari untuk pada dengan ini itu bisa tidak apakah jika".split())
 
-def cari_ayat(query, top_k=8):
+def cari_ayat(query, top_k=3):
     """RAG-lite: skor berdasar kata, dibobot IDF (kata jarang lebih penting)."""
     if not DATASET:
         return []
@@ -204,31 +226,28 @@ async def api_tanya(body: Tanya, request: Request):
     riwayat = muat_riwayat()
     hist = riwayat.get(request.client.host, [])[-MAX_RIWAYAT:]
 
-    hasil = cari_ayat(pertanyaan)
-    if not hasil:
-        jawaban = "Maaf, saya tidak menemukan ayat yang relevan dalam sumber terjemahan untuk pertanyaan itu."
+    hasil = cari_ayat(pertanyaan, top_k=3)
+    konteks = "\n".join(
+        f"QS. {NAMA_SURAT.get(a['surat'], f"Surah {a['surat']}")} {a['surat']}:{a['ayat']} — {a['teks']}"
+        for a in hasil
+    ) or "(tidak ada ayat yang ditemukan)"
+    sumber = [{
+        "surah": a["surat"],
+        "nama": NAMA_SURAT.get(a["surat"], f"Surah {a['surat']}"),
+        "ayat": a["ayat"],
+        "teks": a["teks"],
+    } for a in hasil]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *hist,
+        {"role": "user", "content": f"[KONTEKS AYAT]\n{konteks}\n\n[PERTANYAAN]\n{pertanyaan}"},
+    ]
+    try:
+        jawaban = await asyncio.wait_for(panggil_llm(messages), timeout=REQUEST_TIMEOUT)
+    except Exception as e:
+        log.warning("LLM error: %s", e)
+        jawaban = "Mesin AI OracleFree sedang tidak bisa dihubungi. Coba lagi beberapa saat."
         sumber = []
-    else:
-        konteks = "\n".join(
-            f"{a['surat']}:{a['ayat']} {a['teks']}" for a in hasil
-        )
-        sumber = [{
-            "surah": a["surat"],
-            "nama": NAMA_SURAT.get(a["surat"], f"Surah {a['surat']}"),
-            "ayat": a["ayat"],
-            "teks": a["teks"],
-        } for a in hasil]
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            *hist,
-            {"role": "user", "content": f"[KONTEKS AYAT]\n{konteks}\n\n[PERTANYAAN]\n{pertanyaan}"},
-        ]
-        try:
-            jawaban = await asyncio.wait_for(panggil_llm(messages), timeout=REQUEST_TIMEOUT)
-        except Exception as e:
-            log.warning("LLM error: %s", e)
-            jawaban = "Mesin AI OracleFree sedang tidak bisa dihubungi. Coba lagi beberapa saat."
-            sumber = []
 
     # simpan riwayat (bounded)
     hist = [m for m in hist if m.get("role") != "assistant"]
