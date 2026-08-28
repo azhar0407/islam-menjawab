@@ -93,21 +93,7 @@ Catatan:
 Informasi umum, bukan fatwa. [tambahan keterbatasan atau rujukan ahli bila perlu]
 """
 
-# --- PERSISTEN RIWAYAT DI DISK (agar restart tidak hilang & RAM tetap hemat) ---
-RIWAYAT_FILE = BASE_DIR / "riwayat.json"
-
-def muat_riwayat():
-    try:
-        with open(RIWAYAT_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def simpan_riwayat(data):
-    tmp = RIWAYAT_FILE.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-    tmp.replace(RIWAYAT_FILE)  # atomic, tidak korup
+# Riwayat pengguna sengaja tidak disimpan: privasi, tanpa identitas berbasis IP.
 
 # --- PARSE PDF SATU KALI ---
 def parse_pdf(path):
@@ -222,9 +208,7 @@ async def api_tanya(body: Tanya, request: Request):
     if not rate_limit(request.client.host):
         return JSONResponse({"error": "Terlalu banyak permintaan. Tunggu sebentar."}, status_code=429)
 
-    # riwayat per IP
-    riwayat = muat_riwayat()
-    hist = riwayat.get(request.client.host, [])[-MAX_RIWAYAT:]
+    hist = []
 
     hasil = cari_ayat(pertanyaan, top_k=3)
     konteks = "\n".join(
@@ -249,17 +233,10 @@ async def api_tanya(body: Tanya, request: Request):
         jawaban = "Mesin AI OracleFree sedang tidak bisa dihubungi. Coba lagi beberapa saat."
         sumber = []
 
-    # simpan riwayat (bounded)
-    hist = [m for m in hist if m.get("role") != "assistant"]
-    riwayat[request.client.host] = hist[-MAX_RIWAYAT:]
-    riwayat[request.client.host].append({"role": "user", "content": pertanyaan})
-    riwayat[request.client.host].append({"role": "assistant", "content": jawaban})
-    riwayat[request.client.host] = riwayat[request.client.host][-MAX_RIWAYAT:]
-    simpan_riwayat(riwayat)
 
     return Respon(jawaban=jawaban, sumber=sumber)
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("backend:app", host="0.0.0.0", port=8000, workers=1, log_level="warning")
+    uvicorn.run("backend:app", host="127.0.0.1", port=8000, workers=1, log_level="warning")

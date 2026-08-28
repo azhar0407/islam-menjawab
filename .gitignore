@@ -4,6 +4,10 @@
 riwayat.json
 __pycache__/
 venv/
+.venv/
+node_modules/
 
 *.bak
-.venv/
+
+core
+core.*
