@@ -1,18 +1,22 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === 'OPTIONS') return cors(null);
 
     if (url.pathname === '/api/tanya' && request.method === 'POST') {
       try {
         const body = await request.json();
         const pertanyaan = String(body.pertanyaan || '').trim();
         if (!pertanyaan) return json({ error: 'Pertanyaan kosong.' }, 400);
+        if (pertanyaan.length > 2000) return json({ error: 'Pertanyaan terlalu panjang. Maksimal 2000 karakter.' }, 413);
+        const ip = request.headers.get('CF-Connecting-IP') || 'tidak-diketahui';
+        const batas = await env.RATE_LIMITER.limit({ key: ip });
+        if (!batas.success) return json({ error: 'Terlalu banyak permintaan. Coba lagi sebentar.' }, 429);
 
         const { jawaban, sumber } = await tanya(env, pertanyaan);
         return json({ jawaban, sumber });
       } catch (e) {
-        return json({ error: e.message || 'Gagal.' }, 500);
+        console.error('Permintaan gagal:', e);
+        return json({ error: 'Layanan sedang bermasalah. Coba lagi nanti.' }, 500);
       }
     }
 
@@ -45,18 +49,10 @@ Catatan:
 Informasi umum, bukan fatwa. [tambahan keterbatasan atau rujukan ahli bila perlu]`;
 
 function json(data, status = 200) {
-  return cors(new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify(data), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' }
-  }));
-}
-
-function cors(resp) {
-  const headers = new Headers(resp ? resp.headers : undefined);
-  headers.set('access-control-allow-origin', '*');
-  headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
-  headers.set('access-control-allow-headers', 'content-type,authorization');
-  return resp ? new Response(resp.body, { status: resp.status, headers }) : new Response(null, { headers });
+  });
 }
 
 async function tanya(env, pertanyaan) {
@@ -78,12 +74,16 @@ async function panggilLLM(env, messages) {
   return content.trim();
 }
 
+const datasetCache = new WeakMap();
+
 async function cariAyat(env, query, topK = 3) {
-  const data = await env.QURAN.get('dataset', 'json');
+  // Cache hidup selama isolate Worker; KV tetap sumber utama setelah isolate baru.
+  if (!datasetCache.has(env.QURAN)) datasetCache.set(env.QURAN, env.QURAN.get('dataset', 'json'));
+  const data = await datasetCache.get(env.QURAN);
   if (!Array.isArray(data) || !data.length) return [];
   const stop = new Set('apa bagaimana mengapa yang dan atau di ke dari untuk pada dengan ini itu bisa tidak apakah jika'.split(' '));
   const kata = [...new Set((query.toLowerCase().match(/[a-z0-9]+/g) || []).filter(w => !stop.has(w) && w.length > 2))];
-  if (!kata.length) return data.slice(0, topK).map(normalize);
+  if (!kata.length) return [];
   const df = Object.fromEntries(kata.map(k => [k, 0]));
   for (const a of data) {
     const t = String(a.teks || '').toLowerCase();

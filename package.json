@@ -1,12 +1,13 @@
 {
   "name": "islam-menjawab",
   "private": true,
+  "type": "module",
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.127.1"
   },
   "scripts": {
-    "deploy:pages": "wrangler pages deploy public --project-name=islam-menjawab",
-    "deploy:worker": "cd cf-worker && wrangler deploy",
-    "dev": "wrangler pages dev public --wrangler-config=cf-worker/wrangler.toml"
+    "test": "node --test test_worker.mjs",
+    "deploy": "wrangler pages deploy public --project-name=islam-menjawab",
+    "dev": "wrangler pages dev public"
   }
 }
