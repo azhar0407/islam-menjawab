@@ -1,3 +1,7 @@
+const batasPerIp = new Map();
+const BATAS_PER_MENIT = 5;
+const JENDELA_MS = 60_000;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -9,8 +13,7 @@ export default {
         if (!pertanyaan) return json({ error: 'Pertanyaan kosong.' }, 400);
         if (pertanyaan.length > 2000) return json({ error: 'Pertanyaan terlalu panjang. Maksimal 2000 karakter.' }, 413);
         const ip = request.headers.get('CF-Connecting-IP') || 'tidak-diketahui';
-        const batas = await env.RATE_LIMITER.limit({ key: ip });
-        if (!batas.success) return json({ error: 'Terlalu banyak permintaan. Coba lagi sebentar.' }, 429);
+        if (!bolehMeminta(ip)) return json({ error: 'Terlalu banyak permintaan. Coba lagi sebentar.' }, 429);
 
         const { jawaban, sumber } = await tanya(env, pertanyaan);
         return json({ jawaban, sumber });
@@ -47,6 +50,21 @@ Dalil Al-Qur'an:
 
 Catatan:
 Informasi umum, bukan fatwa. [tambahan keterbatasan atau rujukan ahli bila perlu]`;
+
+function bolehMeminta(ip) {
+  const sekarang = Date.now();
+  const riwayat = (batasPerIp.get(ip) || []).filter(waktu => sekarang - waktu < JENDELA_MS);
+  if (riwayat.length >= BATAS_PER_MENIT) return false;
+  riwayat.push(sekarang);
+  batasPerIp.set(ip, riwayat);
+  // ponytail: cache per-isolate; gunakan Worker standar + binding Rate Limiting bila Pages mendukungnya.
+  if (batasPerIp.size > 1000) {
+    for (const [key, waktu] of batasPerIp) {
+      if (!waktu.some(item => sekarang - item < JENDELA_MS)) batasPerIp.delete(key);
+    }
+  }
+  return true;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {

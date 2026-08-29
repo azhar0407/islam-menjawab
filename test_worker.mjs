@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from './public/_worker.js';
 
-const request = (pertanyaan) => new Request('https://contoh.id/api/tanya', {
+let nomorIp = 0;
+const request = (pertanyaan, ip = `192.0.2.${++nomorIp}`) => new Request('https://contoh.id/api/tanya', {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', 'CF-Connecting-IP': ip },
   body: JSON.stringify({ pertanyaan }),
 });
 
@@ -20,17 +21,17 @@ test('menolak pertanyaan melebihi 2000 karakter', async () => {
   assert.deepEqual(await response.json(), { error: 'Pertanyaan terlalu panjang. Maksimal 2000 karakter.' });
 });
 
-test('menolak IP yang melewati rate limit', async () => {
-  let aiDipanggil = false;
+test('menolak IP setelah lima permintaan per menit', async () => {
+  let aiDipanggil = 0;
   const dibatasi = {
     ...env,
-    RATE_LIMITER: { limit: async () => ({ success: false }) },
-    AI: { run: async () => { aiDipanggil = true; return { response: 'jangan dipanggil' }; } },
+    AI: { run: async () => { aiDipanggil++; return { response: 'Jawaban aman' }; } },
   };
-  const response = await worker.fetch(request('Apa itu sabar?'), dibatasi);
+  let response;
+  for (let i = 0; i < 6; i++) response = await worker.fetch(request('Apa itu sabar?', '198.51.100.1'), dibatasi);
   assert.equal(response.status, 429);
   assert.deepEqual(await response.json(), { error: 'Terlalu banyak permintaan. Coba lagi sebentar.' });
-  assert.equal(aiDipanggil, false);
+  assert.equal(aiDipanggil, 5);
 });
 
 test('menyembunyikan galat internal', async () => {

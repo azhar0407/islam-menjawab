@@ -6,7 +6,7 @@ Aplikasi informasi Islam di Cloudflare Pages.
 - API: `POST /api/tanya`
 - Dataset: terjemahan Al-Qur'an dalam Cloudflare KV
 - Model: Cloudflare Workers AI
-- Batas: 5 pertanyaan per menit per IP; maksimal 2.000 karakter
+- Batas ringan per isolate: 5 pertanyaan per menit per IP; maksimal 2.000 karakter
 
 > Jawaban merupakan informasi umum, bukan fatwa. Verifikasi perkara sensitif kepada ulama tepercaya.
 

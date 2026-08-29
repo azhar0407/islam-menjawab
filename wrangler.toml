@@ -8,11 +8,3 @@ binding = "AI"
 [[kv_namespaces]]
 binding = "QURAN"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
-
-[[ratelimits]]
-name = "RATE_LIMITER"
-namespace_id = "1001"
-
-[ratelimits.simple]
-limit = 5
-period = 60
