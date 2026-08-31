@@ -86,7 +86,7 @@ async function tanya(env, pertanyaan) {
 }
 
 async function panggilLLM(env, messages) {
-  const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages, temperature: 0.2, max_tokens: 900 });
+  const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages, temperature: 0, max_tokens: 900 });
   const content = typeof result === 'string' ? result : result?.response;
   if (!content) throw new Error('Respons AI kosong');
   return content.trim();
