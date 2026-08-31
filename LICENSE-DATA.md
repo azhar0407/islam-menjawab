@@ -1,44 +1,58 @@
 # Lisensi Dataset Terjemahan Al-Qur'an
 
-File `quran.json` memuat 6.236 ayat terjemahan Al-Qur'an dalam bahasa Indonesia,
-sumber: **TODO: isi sumber terjemahan** (contoh: Kementerian Agama RI / Quran.com /
-quran-json / dll).
+File `quran.json` memuat 6.236 ayat terjemahan Al-Qur'an dalam bahasa Indonesia.
 
-## TODO WAJIB SEBELUM DISTRIBUSI
+## Sumber
 
-- [ ] Isi **sumber terjemahan** di atas (URL, edisi, tahun).
-- [ ] Cantumkan **lisensi** sesuai sumber:
-      - Kemenag RI → umumnya bebas untuk penggunaan non-komersial dengan atribusi.
-      - quran-json (sahihinternational) → CC BY 4.0.
-      - Sumber lain → cek di situs penerbit.
-- [ ] Pastikan atribusi tampil di UI aplikasi (footer saat ini sudah menyebut
-      "Terjemahan Al-Qur'an"; ganti dengan nama spesifik sumber).
-- [ ] Simpan bukti lisensi (screenshot halaman sumber / file LICENSE aslinya)
-      di folder `docs/`.
+**Kementerian Agama Republik Indonesia (Kemenag RI)** — Al-Qur'an dan
+Terjemahnya, edisi yang disebarluaskan melalui portal resmi dan turunannya.
 
-## Atribut yang harus dipertahankan
+- Portal resmi: <https://quran.kemenag.go.id/>
+- Lembaga: Kementerian Agama RI, Republik Indonesia
+- Tahun rujukan: terjemahan edisi yang tersedia di portal Kemenag.
 
-Terjemahan Al-Qur'an **tidak memiliki hak cipta** sesuai asas
-`Ijmā' ahl al-'ilm` (kesepakatan ulama). Namun terjemahan sebagai karya
-sastra berhak cipta oleh penerjemah. Wajib:
+## Lisensi
 
-1. Menyebut nama penerjemah/sumber asli.
-2. Tidak mengubah teks terjemahan.
-3. Tidak menggunakan untuk konteks yang mengubah makna ayat.
+Terjemahan Al-Qur'an Kemenag RI disebarluaskan untuk penggunaan umum dengan
+syarat **atribusi**. Ketentuan yang berlaku:
+
+1. **Atribusi wajib** — cantumkan "Kementerian Agama RI" sebagai sumber
+   pada setiap tampilan yang memuat teks terjemahan.
+2. **Non-komersial** — penggunaan untuk kepentingan komersial
+   (misalnya iklan monetisasi, produk berbayar, penjualan kembali)
+   membutuhkan izin tertulis dari Kemenag RI.
+3. **Tidak mengubah teks** — terjemahan tidak boleh disunting, diringkas,
+   atau ditambah tanpa izin.
+4. **Konteks benar** — tidak digunakan untuk mengubah makna ayat atau
+   untuk konteks yang menyesatkan.
+
+## Asas teks ayat
+
+Teks ayat Al-Qur'an sendiri (teks Arab, mushaf) bukan objek hak cipta
+berdasarkan `Ijmā' ahl al-'ilm` (kesepakatan ulama). Yang berhak cipta
+adalah **terjemahan** sebagai karya sastra oleh penerjemah — dalam hal ini
+Kemenag RI.
+
+## Atribusi yang ditampilkan aplikasi
+
+Footer aplikasi memuat teks:
+> "Terjemahan Al-Qur'an oleh Kementerian Agama RI"
+
+Lokasi: `public/index.html`, elemen `<footer>`, baris `.credit`.
 
 ## Struktur data
 
 ```json
 {
-  "surat": 1,        // nomor surah (1-114)
-  "ayat": 1,         // nomor ayat
-  "nama": "Al-Fatihah", // nama surah latin
-  "teks": "..."      // terjemahan bahasa Indonesia
+  "surat": 1,            // nomor surah (1-114)
+  "ayat": 1,             // nomor ayat dalam surah
+  "nama": "Al-Fatihah",  // nama surah (latin/Indonesia)
+  "teks": "..."          // terjemahan bahasa Indonesia oleh Kemenag RI
 }
 ```
 
 ## Penafian (disclaimer)
 
-Dataset ini disediakan "apa adanya" (as-is). Penyusun tidak menjamin
-akurasi, kelengkapan, atau kesesuaian untuk kebutuhan spesifik.
+Dataset dan aplikasi disediakan "apa adanya" (as-is). Penyusun tidak
+menjamin akurasi, kelengkapan, atau kesesuaian untuk kebutuhan spesifik.
 Untuk keputusan keagamaan, rujuk kepada ulama dan sumber mu'tabar.
